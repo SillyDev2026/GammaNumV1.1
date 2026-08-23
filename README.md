@@ -58,7 +58,7 @@ print(GammaNum.FixedBy) -- sillydev0050
 ## Quick Start
 
 ```lua
-local GammaNum = require(path.to.GammaNum_v1_1_1_SillyDev0050_Fixed)
+local GammaNum = require(path.to.GammaNum)
 
 local coins = GammaNum.fromNumber(1250)
 local reward = GammaNum.fromNumber(750)
