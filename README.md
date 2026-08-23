@@ -31,19 +31,19 @@ GammaNum represents values far beyond the range of normal IEEE-754 doubles using
 
 ## Installation
 
-1. Download `GammaNum_v1.1.0_SillyDev0050_Fixed.lua`.
+1. Download `GammaNum.lua`.
 2. Create a **ModuleScript** in Roblox Studio.
 3. Name it:
 
 ```text
-GammaNum_v1_1_1_SillyDev0050_Fixed
+GammaNum
 ```
 
 4. Paste the module source into the ModuleScript.
 5. Require it from a Script, LocalScript, or another ModuleScript.
 
 ```lua
-local GammaNum = require(path.to.GammaNum_v1_1_1_SillyDev0050_Fixed)
+local GammaNum = require(path.to.GammaNum)
 ```
 
 You can verify the loaded release at runtime:
@@ -450,7 +450,7 @@ If you use or redistribute this edition, keep the original GammaNum credit and t
 ## Release Files
 
 ```text
-GammaNum_v1.1.0_SillyDev0050_Fixed.lua
+GammaNum.lua
 GammaNum_v1.1.0_AllAPI_Tests.server.lua
 GammaNum_v1.1.0_PATCH_NOTES.txt
 README.md
