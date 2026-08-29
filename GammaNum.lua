@@ -5,9 +5,9 @@
 				
 	Creator: @Valkzius
 	Name: GammaNum
-	Version: 1.1.1 - 8_22_2026 (SillyDev0050 Fixed Edition)
-	Patch: SillyDev0050 Fixed Edition - 8_22_2026
-	Description: large number library for numbers up to 10↑↑2^1024 optimized for speed
+	Version: 1.1.2 - 8_29_2026 (Decimal Math Edition)
+	Patch: Decimal Math / Fractional Tetration Edition - 8_29_2026
+	Description: large number library for numbers up to 10↑↑2^1024 optimized for speed, with decimal-height tetration
 	Patch Credit: @sillydev0050 - correctness fixes, safer codecs, and QoL helpers
 	please give credit if used
 	
@@ -60,7 +60,7 @@ ARITHMETIC:
 	.ln(n)           => natural logarithm of n (base ~2.71828)
 	.neg(n)          => -n
 	.abs(n)          => |n| -- absolute value of n
-	.tetr(n1,n2)     => n1↑↑n2 -- tetration of n1 to n2 (n2 must be an integer) ex. n1^n1^..^n1 with n2 n1's
+	.tetr(n1,n2)     => n1↑↑n2 -- tetration with any finite n2 >= 0; decimal heights use continuous recursive interpolation
 	
 EQUALS: 
 	.addeq(n1,n2)    => n1 += n2
@@ -145,7 +145,7 @@ STRING:
 ]]
 local gn = {}
 -- sillydev0050 fixed v1.1.1: lightweight release metadata for debugging/version checks
-gn.Version = "1.1.1"
+gn.Version = "1.1.2"
 gn.FixedBy = "sillydev0050"
 gn.SuffixTypes = {
 	Scientific =     0 , -- scientific notation is always on
@@ -3463,10 +3463,10 @@ function gn.ln(n)
 end
 
 --[[
-	n1↑↑n2 (n2 must be an integer)
-	Tetration of n1 and n2
+	Integer tetration core. Public gn.tetr() below adds decimal-height support while
+	preserving this exact optimized path for integer heights.
 ]]
-function gn.tetr(n1,n2)
+local function tetrInteger(n1,n2)
 	-- sillydev0050 fixed: enforce documented integer height and handle negative/special bases through pow()
 	if type(n1) == "number" and (n1 ~= n1 or math.abs(n1) == math.huge) then n1 = gn.fromNumber(n1) end
 	local s1,l1,e1,s2,l2,e2
@@ -3704,6 +3704,120 @@ function gn.tetr(n1,n2)
 	buffer.writef64(buf,9,e2)
 	return buf
 end
+
+--[[
+	n1↑↑n2 with decimal-height support.
+
+	Integer heights are routed through tetrInteger() so existing exact/optimized
+	behavior is unchanged.
+
+	For a non-integer height h = whole + frac, 0 < frac < 1, GammaNum uses the
+	continuous recursive extension:
+		T(base, frac) = base ^ frac
+		T(base, x + 1) = base ^ T(base, x)
+
+	This gives T(base, 0) = 1 and T(base, 1) = base, preserves all integer
+	tetration values, and provides predictable real-valued interpolation between
+	integer heights. Fractional heights require a positive real base; negative or
+	zero bases are rejected because real fractional tetration is not uniquely
+	defined there.
+
+	n2 may be either a native number or a GammaNum that fits in a native number.
+]]
+function gn.tetr(n1,n2)
+	local height
+	if type(n2) == "number" then
+		height = n2
+	elseif type(n2) == "buffer" then
+		if not gn.isGammaNum(n2) or not gn.isNumber(n2) then
+			return gn.new(1,-1,1)
+		end
+		height = gn.toNumber(n2)
+	else
+		error("Wrong Type: tetr(), Input 2")
+	end
+
+	if height ~= height or math.abs(height) == math.huge or height < 0 then
+		return gn.new(1,-1,1)
+	end
+
+	-- Preserve the old optimized algorithm exactly at every integer height.
+	if height == math.floor(height) then
+		return tetrInteger(n1,height)
+	end
+
+	local baseValue
+	if type(n1) == "buffer" then
+		if not gn.isGammaNum(n1) then
+			error("Wrong Type: tetr(), Input 1")
+		end
+		baseValue = gn.clone(n1)
+	elseif type(n1) == "number" then
+		baseValue = gn.fromNumber(n1)
+	else
+		error("Wrong Type: tetr(), Input 1")
+	end
+
+	local s,l,e = buffer.readi8(baseValue,0), buffer.readf64(baseValue,1), buffer.readf64(baseValue,9)
+	if l < 0 then
+		return gn.new(1,-1,1)
+	end
+
+	-- Fractional-height real tetration is only defined by this interpolation for
+	-- positive bases. Integer negative/zero-base behavior still uses tetrInteger().
+	if s <= 0 then
+		return gn.new(1,-1,1)
+	end
+
+	if l == math.huge then
+		return gn.new(1,math.huge,1)
+	end
+
+	if l == 0 and e == 1 then
+		return gn.fromNumber(1)
+	end
+
+	local whole = math.floor(height)
+	local frac = height - whole
+
+	-- Seed the fractional interval [0,1] in exponent/log space.
+	local result = gn.pow(baseValue,frac)
+	if gn.isNaN(result) or gn.isInf(result) then
+		return result
+	end
+
+	-- Continue with the defining recursion T(x+1) = base^T(x).
+	-- Two safe exits keep very large decimal heights from needlessly iterating:
+	-- 1) convergent bases eventually become bit-identical at GammaNum precision;
+	-- 2) once a >1 base is dominated by a layer >= 3 exponent, gn.pow() itself
+	--    only increments that exponent layer, so the remaining layers can be jumped.
+	local baseGreaterThanOne = gn.gt(baseValue,1)
+	local baseLog = if baseGreaterThanOne then gn.abslog10(baseValue) else nil
+	for i=1,whole do
+		local previous = result
+		result = gn.pow(baseValue,result)
+		if gn.isNaN(result) or gn.isInf(result) then
+			return result
+		end
+
+		if gn.eq(result,previous) then
+			return result
+		end
+
+		if baseGreaterThanOne and i < whole then
+			local _,resultLayer,resultExponent = gn.totuple(result)
+			local _,logLayer,logExponent = gn.totuple(baseLog)
+			if resultLayer >= 3 and resultExponent > 0
+				and compareMagnitude(resultLayer,resultExponent,logLayer,logExponent) > 0 then
+				local remaining = whole - i
+				return gn.createCheckless(1,resultLayer + remaining,resultExponent)
+			end
+		end
+	end
+
+	return result
+end
+
 --[[
 	n1 += n2
 	Sets n1 to Sum of n1 and n2
