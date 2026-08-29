@@ -1,6 +1,6 @@
 # GammaNum v1.1.2 — Decimal Math Edition
 
-A high-performance large-number library for Roblox/Luau, based on **GammaNum** by [@Valkzius]([https://www.roblox.com/](https://create.roblox.com/store/asset/125402300335958/GammaNum]), with additional correctness fixes, safer serialization, regression coverage, and quality-of-life helpers maintained in the **SillyDev0050 Fixed Edition**.
+A high-performance large-number library for Roblox/Luau, based on **GammaNum** by [@Valkzius]([https://www.roblox.com/](https://create.roblox.com/store/asset/125402300335958/GammaNum), with additional correctness fixes, safer serialization, regression coverage, and quality-of-life helpers maintained in the **SillyDev0050 Fixed Edition**.
 
 GammaNum represents values far beyond the range of normal IEEE-754 doubles using a compact sign/layer/exponent model stored in a 17-byte Roblox `buffer`. The library is designed for games that need extremely large values while keeping arithmetic, formatting, comparisons, and serialization practical.
 
