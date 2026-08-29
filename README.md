@@ -1,4 +1,4 @@
-# GammaNum v1.1.0 — SillyDev0050 Fixed Edition
+# GammaNum v1.1.2 — Decimal Math Edition
 
 A high-performance large-number library for Roblox/Luau, based on **GammaNum** by [@Valkzius](https://www.roblox.com/), with additional correctness fixes, safer serialization, regression coverage, and quality-of-life helpers maintained in the **SillyDev0050 Fixed Edition**.
 
@@ -6,7 +6,7 @@ GammaNum represents values far beyond the range of normal IEEE-754 doubles using
 
 > **Original creator:** @Valkzius  
 > **Fixed Edition:** @sillydev0050  
-> **Current version:** `1.1.0`
+> **Current version:** `1.1.2`
 
 ---
 
@@ -16,13 +16,14 @@ GammaNum represents values far beyond the range of normal IEEE-754 doubles using
 - Compact 17-byte `buffer` representation
 - Native-number and scientific-number conversion
 - Addition, subtraction, multiplication, division, modulo, powers, roots, and logarithms
-- Tetration, Gamma, factorial, and geometric-series helpers
+- Integer and decimal-height tetration, Gamma, factorial, and geometric-series helpers
 - Mutable `*eq` operations for in-place updates
 - Scientific, engineering, suffix, layered, and standard formatting
 - OrderedDataStore-compatible encoding
 - Base64 and hexadecimal lossless serialization
 - NaN and Infinity handling
 - Native-number representability checks
+- Decimal-height tetration with integer-result compatibility
 - QoL helpers such as `clone`, `compare`, `clamp`, and `toNumber`
 - `--!optimize 2` and `--!native` retained for Luau optimization
 - Full API coverage test suite for all 109 exported functions
@@ -49,7 +50,7 @@ local GammaNum = require(path.to.GammaNum)
 You can verify the loaded release at runtime:
 
 ```lua
-print(GammaNum.Version) -- 1.1.0
+print(GammaNum.Version) -- 1.1.2
 print(GammaNum.FixedBy) -- sillydev0050
 ```
 
@@ -194,6 +195,52 @@ GammaNum.ln(value)
 GammaNum.tetr(base, height)
 ```
 
+### Decimal Tetration
+
+Starting in `v1.1.2`, `GammaNum.tetr()` accepts finite non-negative decimal heights for positive finite bases.
+
+```lua
+local a = GammaNum.tetr(2, 0.5)
+local b = GammaNum.tetr(2, 1.5)
+local c = GammaNum.tetr(2, 2.5)
+local d = GammaNum.tetr(2, 3)
+
+print(GammaNum.toScientific(a))
+print(GammaNum.toScientific(b))
+print(GammaNum.toScientific(c))
+print(GammaNum.toScientific(d))
+```
+
+Integer heights keep the original tetration behavior:
+
+```text
+2 ↑↑ 0 = 1
+2 ↑↑ 1 = 2
+2 ↑↑ 2 = 4
+2 ↑↑ 3 = 16
+2 ↑↑ 4 = 65,536
+```
+
+For a fractional height `0 < f < 1`, the fixed edition uses:
+
+```text
+T(base, f) = base ^ f
+T(base, h + 1) = base ^ T(base, h)
+```
+
+This makes decimal heights continuous with the library's power recursion while preserving every integer-height result.
+
+> Fractional tetration is not mathematically unique. GammaNum v1.1.2 intentionally uses this recurrence-based continuation rather than claiming to implement every possible analytic tetration extension.
+
+Current decimal-height rules:
+
+- Positive finite bases support finite heights `>= 0`.
+- Integer heights retain the original optimized tetration path.
+- Negative heights return GammaNum `NaN`.
+- Fractional heights on zero or negative bases return GammaNum `NaN`.
+- GammaNum heights are accepted when they can be converted to a finite native height.
+- Very large decimal heights use convergence/layer fast paths when possible.
+
 ### Mutable Operations
 
 ```lua
@@ -336,19 +383,46 @@ local decoded = GammaNum.lbdecode(encoded)
 
 ---
 
-## v1.1.0 Fixes
+## v1.1.2 Fixes and Changes
 
-Version `1.1.0` was created after running the complete All-API regression suite against the previous fixed build. That run covered all 109 exported API functions and exposed seven remaining failure areas.
+Version `1.1.2` expands the fixed edition from correctness-only patches into decimal-height tetration support while preserving the existing integer tetration behavior.
 
-The release includes fixes for:
+### v1.1.2
 
-- Canonical finite scientific-string parsing in `fromString()`
-- Correct floor-modulo behavior in `mod()`
-- `modeq()` delegating to the corrected modulo implementation
-- Exact native-number fast paths in `pow()` where appropriate
-- `poweq()` delegating to the corrected power implementation
-- Negative-base reconstruction in `tetr()`
-- Canonical native geometric-series results in `geosum()`
+- Added decimal-height support to `tetr(base, height)`.
+- Preserved the original optimized path for integer tetration.
+- Added support for GammaNum height inputs when the height is finite and representable as a native number.
+- Added recurrence-based fractional tetration for positive finite bases.
+- Added convergence handling for bases whose repeated powers stabilize.
+- Added layer fast-forwarding for very large decimal heights after the power sequence becomes a pure layer increment.
+- Kept negative tetration heights invalid.
+- Kept fractional tetration of zero or negative bases invalid instead of returning misleading real-number results.
+- Updated tetration documentation and regression coverage for decimal heights.
+
+### v1.1.1
+
+The `v1.1.1` patch focused on special values, normalization, and correctness hardening. It included fixes such as:
+
+- Canonical NaN and Infinity conversion.
+- Safer `fromScientific()` handling.
+- Correct native scientific-string parsing in `fromString()`.
+- Better negative-number reconstruction in tetration.
+- Corrected rounding edge cases near zero.
+- Safer Base64 and hexadecimal decoding validation.
+- Consistent comparison behavior across negative values and special values.
+- Additional QoL helpers and release metadata.
+
+### v1.1.0
+
+The `v1.1.0` release was produced after a complete All-API regression pass and fixed several remaining correctness problems:
+
+- Canonical finite scientific-string parsing in `fromString()`.
+- Correct floor-modulo behavior in `mod()`.
+- `modeq()` delegating to the corrected modulo implementation.
+- Exact native-number fast paths in `pow()` where appropriate.
+- `poweq()` delegating to the corrected power implementation.
+- Negative-base reconstruction in `tetr()`.
+- Canonical native geometric-series results in `geosum()`.
 
 Earlier SillyDev0050 fixes also addressed comparison ordering, round-to-step behavior, conversion sign handling, serialization validation, logarithm and power edge cases, Gamma/Stirling math, mutable-operation buffer shadowing, special-value formatting, and additional NaN/Infinity behavior.
 
@@ -358,13 +432,7 @@ Search the source for:
 -- sillydev0050 fixed:
 ```
 
-or:
-
-```lua
--- sillydev0050 fixed v1.1.0:
-```
-
-to locate patched areas.
+and version-specific patch comments to locate corrected areas.
 
 ---
 
@@ -374,9 +442,10 @@ The package includes:
 
 ```text
 GammaNum_v1.1.0_AllAPI_Tests.server.lua
+GammaNum_DecimalTetr_Test.server.lua
 ```
 
-The suite is designed to cover every exported function plus regression cases for previously discovered bugs.
+The All-API suite is designed to cover every exported function plus regression cases for previously discovered bugs. The decimal tetration regression script specifically checks fractional heights, integer-height compatibility, GammaNum height inputs, recurrence behavior, and invalid-height handling.
 
 Place the test Script beside the ModuleScript in Roblox Studio and run the server test.
 
@@ -434,6 +503,8 @@ For performance-sensitive loops:
 - Prefer mutable `*eq` functions when intentionally reusing the same buffer.
 - Avoid repeatedly formatting values every frame unless the displayed value actually changed.
 - Use `createCheckless()` only when you fully control and validate the tuple yourself.
+- Prefer integer tetration heights when possible; they use the original optimized path.
+- Decimal tetration may require repeated `pow()` evaluation before convergence or layer fast-forwarding can take over.
 
 ---
 
@@ -441,7 +512,7 @@ For performance-sensitive loops:
 
 **GammaNum** was originally created by **@Valkzius**.
 
-The **SillyDev0050 Fixed Edition** keeps the original creator credit and adds correctness fixes, safer codecs, regression testing, and QoL helpers by **@sillydev0050**.
+The **SillyDev0050 Fixed Edition** keeps the original creator credit and adds correctness fixes, safer codecs, decimal-height tetration, regression testing, and QoL helpers by **@sillydev0050**.
 
 If you use or redistribute this edition, keep the original GammaNum credit and the fixed-edition patch credit in the source.
 
@@ -452,6 +523,7 @@ If you use or redistribute this edition, keep the original GammaNum credit and t
 ```text
 GammaNum.lua
 GammaNum_v1.1.0_AllAPI_Tests.server.lua
+GammaNum_DecimalTetr_Test.server.lua
 GammaNum_v1.1.0_PATCH_NOTES.txt
 README.md
 ```
@@ -461,7 +533,8 @@ README.md
 ## Version
 
 ```text
-GammaNum v1.1.0
+GammaNum v1.1.2
+Decimal Math Edition
 SillyDev0050 Fixed Edition
-2026-08-22
+2026-08-29
 ```
