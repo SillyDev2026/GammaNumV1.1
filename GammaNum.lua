@@ -5,9 +5,9 @@
 				
 	Creator: @Valkzius
 	Name: GammaNum
-	Version: 1.1.2 - 8_29_2026 (Decimal Math Edition)
-	Patch: Decimal Math / Fractional Tetration Edition - 8_29_2026
-	Description: large number library for numbers up to 10↑↑2^1024 optimized for speed, with decimal-height tetration
+	Version: 1.1.3 - 9_4_2026 (Mutable API Edition)
+	Patch: Expanded In-Place Math / Buffer Set Overload Edition - 9_4_2026
+	Description: large number library for numbers up to 10↑↑2^1024 optimized for speed, with decimal-height tetration and expanded mutable APIs
 	Patch Credit: @sillydev0050 - correctness fixes, safer codecs, and QoL helpers
 	please give credit if used
 	
@@ -62,7 +62,7 @@ ARITHMETIC:
 	.abs(n)          => |n| -- absolute value of n
 	.tetr(n1,n2)     => n1↑↑n2 -- tetration with any finite n2 >= 0; decimal heights use continuous recursive interpolation
 	
-EQUALS: 
+EQUALS / MUTABLE:
 	.addeq(n1,n2)    => n1 += n2
 	.subeq(n1,n2)    => n1 -= n2
 	.muleq(n1,n2)    => n1 *= n2
@@ -83,9 +83,22 @@ EQUALS:
 	.lneq(n)         => n = natural logarithm of n (base ~2.71828)
 	.negeq(n)        => n = -n
 	.abseq(n)        => n = |n| -- absolute value of n
+	.maxeq(n,...)    => n = max(n,...)
+	.mineq(n,...)    => n = min(n,...)
+	.maxabseq(n,...) => n = maxabs(n,...)
+	.minabseq(n,...) => n = minabs(n,...)
+	.tetreq(n,h)     => n = n↑↑h
+	.clampeq(n,min,max) => n = clamp(n,min,max)
+	.randomeq(n,max) => n = random value between old n and max
+	.geosumeq(base,mul,start,last) => base = geosum(base,mul,start,last)
+	.geosumReq(base,mul,start,amount) => base = geosumR(base,mul,start,amount)
+	.gammaeq(n)      => n = gamma(n)
+	.facteq(n)       => n = fact(n)
 	
-	.set(n,s,l,e)    => sets n to a new gammanum using s,l,e
-	.setFromNumber(n,number)    => sets n to a new gammanum from a number
+	.set(n,s,l,e)    => sets n to a new gammanum using s,l,e (legacy form kept)
+	.set(n,source)   => copies another GammaNum buffer directly into n
+	.setFromBuffer(n,source) => explicit buffer-copy setter
+	.setFromNumber(n,number)  => sets n to a new gammanum from a number
 	.copy(n1,n2)     => sets n1 to n2 (both must be gammanums)
 	
 ROUNDING:
@@ -117,6 +130,7 @@ MISC:
 	.clone(n) => returns an independent gammanum buffer
 	.compare(n1,n2) => returns -1, 0, 1 (nil when either value is NaN)
 	.clamp(n,min,max) => clamps n and returns a new gammanum
+	.clampeq(n,min,max) => clamps n in place
 	.toNumber(n) => converts to a native number (saturates to +/-inf when needed)
 	.isGammaNum(n) => true when n is a valid 17-byte gammanum buffer
 	.isFinite(n) => true when n is not NaN or infinity
@@ -124,10 +138,15 @@ MISC:
 	.isInf(n) => true when n is +/- infinity
 
 	.random(n1,n2) => random number between n1 and n2
+	.randomeq(n1,n2) => stores a random number between old n1 and n2 into n1
 	.geosum(base,mul,start,last)    => sum of geometric series from start -> last	
+	.geosumeq(base,mul,start,last)  => stores geosum result into base
 	.geosumR(base,mul,start,amount) => end index of geometric series that starts from 'start' and sums to amount
+	.geosumReq(base,mul,start,amount) => stores geosumR result into base
 	.gamma(n) => the gamma function | (n-1)!
+	.gammaeq(n) => stores gamma(n) into n
 	.fact(n)  => the factorial function | n!
+	.facteq(n) => stores fact(n) into n
 
 STRING:
 	.tostring(n,suffixtype) => converts using the suffix type given (defaults to .DefaultSuffixType below)
@@ -145,7 +164,7 @@ STRING:
 ]]
 local gn = {}
 -- sillydev0050 fixed v1.1.1: lightweight release metadata for debugging/version checks
-gn.Version = "1.1.2"
+gn.Version = "1.1.3"
 gn.FixedBy = "sillydev0050"
 gn.SuffixTypes = {
 	Scientific =     0 , -- scientific notation is always on
@@ -942,6 +961,54 @@ function gn.minabs(...)
 		end
 	end
 	return if type(best) == "buffer" then best else gn.fromNumber(best)
+end
+
+--[[
+	Expanded mutable comparison helpers (v1.1.3).
+	The first argument is both a candidate and the destination buffer.
+]]
+function gn.maxeq(n1,...)
+	if type(n1) ~= "buffer" then
+		error("Wrong Type: maxeq(), Input 1")
+	end
+	local result = gn.max(n1,...)
+	if result ~= n1 then
+		buffer.copy(n1,0,result,0,17)
+	end
+	return n1
+end
+
+function gn.mineq(n1,...)
+	if type(n1) ~= "buffer" then
+		error("Wrong Type: mineq(), Input 1")
+	end
+	local result = gn.min(n1,...)
+	if result ~= n1 then
+		buffer.copy(n1,0,result,0,17)
+	end
+	return n1
+end
+
+function gn.maxabseq(n1,...)
+	if type(n1) ~= "buffer" then
+		error("Wrong Type: maxabseq(), Input 1")
+	end
+	local result = gn.maxabs(n1,...)
+	if result ~= n1 then
+		buffer.copy(n1,0,result,0,17)
+	end
+	return n1
+end
+
+function gn.minabseq(n1,...)
+	if type(n1) ~= "buffer" then
+		error("Wrong Type: minabseq(), Input 1")
+	end
+	local result = gn.minabs(n1,...)
+	if result ~= n1 then
+		buffer.copy(n1,0,result,0,17)
+	end
+	return n1
 end
 
 --[[
@@ -3819,6 +3886,21 @@ function gn.tetr(n1,n2)
 end
 
 --[[
+	n1 ↑↑= n2
+	Stores tetr(n1,n2) back into n1.
+]]
+function gn.tetreq(n1,n2)
+	if type(n1) ~= "buffer" then
+		error("Wrong Type: tetreq(), Input 1")
+	end
+	local result = gn.tetr(n1,n2)
+	if result ~= n1 then
+		buffer.copy(n1,0,result,0,17)
+	end
+	return n1
+end
+
+--[[
 	n1 += n2
 	Sets n1 to Sum of n1 and n2
 ]]
@@ -5606,15 +5688,50 @@ function gn.modeq(n1,n2)
 	return n1
 end
 --[[
-	Sets n to a new gammanum from s,l,e
+	Sets n to a GammaNum.
+
+	v1.1.3 overloads:
+		set(n, s, l, e)  -> legacy tuple setter, unchanged
+		set(n, source)    -> direct GammaNum buffer copy
 ]]
 function gn.set(n,s,l,e)
 	if type(n) ~= "buffer" then
 		error("Wrong Type: set(), Input 1")
 	end
-	-- sillydev0050 fixed: reuse new() so setter normalization cannot drift from constructor behavior
+
+	-- v1.1.3: direct GammaNum -> GammaNum assignment.
+	if type(s) == "buffer" then
+		if l ~= nil or e ~= nil then
+			error("Invalid Arguments: set(), buffer source does not use layer/exponent")
+		end
+		if buffer.len(s) ~= 17 then
+			error("Wrong Type: set(), Input 2 is not a GammaNum buffer")
+		end
+		if s ~= n then
+			buffer.copy(n,0,s,0,17)
+		end
+		return n
+	end
+
+	-- Legacy tuple form is preserved exactly.
 	local fixed = gn.new(s,l,e)
 	buffer.copy(n,0,fixed,0,17)
+	return n
+end
+
+--[[
+	Explicit form of set(destination, sourceGammaNum).
+]]
+function gn.setFromBuffer(n,source)
+	if type(n) ~= "buffer" then
+		error("Wrong Type: setFromBuffer(), Input 1")
+	end
+	if type(source) ~= "buffer" or buffer.len(source) ~= 17 then
+		error("Wrong Type: setFromBuffer(), Input 2")
+	end
+	if source ~= n then
+		buffer.copy(n,0,source,0,17)
+	end
 	return n
 end
 --[[
@@ -6054,11 +6171,43 @@ function gn.clamp(n,minValue,maxValue)
 	return gn.clone(n)
 end
 
+function gn.clampeq(n,minValue,maxValue)
+	if type(n) ~= "buffer" then
+		error("Wrong Type: clampeq(), Input 1")
+	end
+	if gn.gt(minValue,maxValue) then
+		error("Invalid Range: clampeq(), minValue > maxValue")
+	end
+	if gn.lt(n,minValue) then
+		if type(minValue) == "buffer" then
+			buffer.copy(n,0,minValue,0,17)
+		else
+			gn.setFromNumber(n,minValue)
+		end
+	elseif gn.gt(n,maxValue) then
+		if type(maxValue) == "buffer" then
+			buffer.copy(n,0,maxValue,0,17)
+		else
+			gn.setFromNumber(n,maxValue)
+		end
+	end
+	return n
+end
+
 --[[
 	Random number between n1 and n2
 ]]
 function gn.random(n1,n2)
 	return gn.addeq(gn.muleq(gn.sub(n2,n1),math.random()),n1)
+end
+
+function gn.randomeq(n1,n2)
+	if type(n1) ~= "buffer" then
+		error("Wrong Type: randomeq(), Input 1")
+	end
+	local result = gn.random(n1,n2)
+	buffer.copy(n1,0,result,0,17)
+	return n1
 end
 --[[
 	Sum of Geometric Series Range from start to last
@@ -6108,6 +6257,17 @@ function gn.geosum(base, mul, start, last)
 		return gn.div(gn.mul(gn.sub(gn.pow(mul,gn.add(last,1)),gn.pow(mul,start)),base),gn.sub(mul,1))
 	end
 end
+
+function gn.geosumeq(base,mul,start,last)
+	if type(base) ~= "buffer" then
+		error("Wrong Type: geosumeq(), Input 1")
+	end
+	local result = gn.geosum(base,mul,start,last)
+	if result ~= base then
+		buffer.copy(base,0,result,0,17)
+	end
+	return base
+end
 --[[
 	End Index of Geometric Series Range starting at 'start'
 	start term is: base * mul ^ start
@@ -6122,6 +6282,17 @@ function gn.geosumR(base, mul, start, amount)
 		local scaled = gn.div(gn.mul(gn.sub(mul,1),amount),gn.mul(base,gn.pow(mul,start)))
 		return gn.sub(gn.add(gn.log(gn.add(scaled,1),mul),start),1)
 	end
+end
+
+function gn.geosumReq(base,mul,start,amount)
+	if type(base) ~= "buffer" then
+		error("Wrong Type: geosumReq(), Input 1")
+	end
+	local result = gn.geosumR(base,mul,start,amount)
+	if result ~= base then
+		buffer.copy(base,0,result,0,17)
+	end
+	return base
 end
 
 --it's gammaing time
@@ -6216,12 +6387,34 @@ function gn.gamma(n)
 	return gn.exp(n)
 end
 
+function gn.gammaeq(n)
+	if type(n) ~= "buffer" then
+		error("Wrong Type: gammaeq(), Input 1")
+	end
+	local result = gn.gamma(n)
+	if result ~= n then
+		buffer.copy(n,0,result,0,17)
+	end
+	return n
+end
+
 --[[
 	the factorial function | n!
 	n*(n-1)*(n-2)*...*2*1
 ]]
 function gn.fact(n)
 	return gn.gamma(gn.add(n,1))
+end
+
+function gn.facteq(n)
+	if type(n) ~= "buffer" then
+		error("Wrong Type: facteq(), Input 1")
+	end
+	local result = gn.fact(n)
+	if result ~= n then
+		buffer.copy(n,0,result,0,17)
+	end
+	return n
 end
 local suffixes = {
 	{
